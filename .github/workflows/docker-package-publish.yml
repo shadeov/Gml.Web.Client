@@ -43,6 +43,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Set lowercase image name
+        id: image
+        run: |
+          image="${IMAGE_NAME}"
+          echo "lower=${image,,}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_NAME_LC=${image,,}" >> "$GITHUB_ENV"
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+
       - name: Prepare platform name
         id: platform
         run: |
@@ -71,7 +80,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.lower }}
           flavor: |
             latest=false
           tags: |
@@ -86,7 +95,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ steps.image.outputs.lower }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
           cache-from: type=gha,scope=build-${{ steps.platform.outputs.name }}
           cache-to: type=gha,mode=max,scope=build-${{ steps.platform.outputs.name }}
 
@@ -136,26 +145,35 @@ jobs:
 
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
+      - name: Set lowercase image name
+        id: image
+        run: |
+          image="${IMAGE_NAME}"
+          echo "lower=${image,,}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_NAME_LC=${image,,}" >> "$GITHUB_ENV"
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.lower }}
 
       - name: Create manifest list and push
         id: create-manifest
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+            $(printf '${{ env.REGISTRY }}/${{ steps.image.outputs.lower }}@sha256:%s ' *)
 
           # Get the digest of the manifest
-          manifest_digest=$(docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }} --format '{{.Manifest.Digest}}')
+          manifest_digest=$(docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ steps.image.outputs.lower }}:${{ steps.meta.outputs.version }} --format '{{.Manifest.Digest}}')
           echo "digest=${manifest_digest}" >> $GITHUB_OUTPUT
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ steps.image.outputs.lower }}:${{ steps.meta.outputs.version }}
 
       # Install the cosign tool
       # https://github.com/sigstore/cosign-installer
