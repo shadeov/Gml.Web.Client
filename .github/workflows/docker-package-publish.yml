@@ -11,7 +11,7 @@ on:
     # Publish semver tags as releases.
     tags: [ 'v*.*', 'v*.*.*', 'v*.*.*-beta*' ]
   pull_request:
-    branches: [ 'master', 'develop' ]
+    branches: [ 'master', 'develop', 'feature/*' ]
 
 env:
   # Use docker.io for Docker Hub if empty
